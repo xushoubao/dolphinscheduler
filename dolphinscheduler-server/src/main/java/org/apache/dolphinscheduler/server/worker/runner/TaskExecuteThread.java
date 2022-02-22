@@ -46,6 +46,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.Delayed;
 import java.util.concurrent.ExecutionException;
@@ -251,7 +252,33 @@ public class TaskExecuteThread implements Runnable, Delayed {
             List<Property> globalParamsList = JSONUtils.toList(globalParamsStr, Property.class);
             globalParamsMap.putAll(globalParamsList.stream().collect(Collectors.toMap(Property::getProp, Property::getValue)));
         }
+
+        String startTimeStamp = globalParamsMap.get("start_time_stamp");
+        if (startTimeStamp == null) {
+            startTimeStamp = String.valueOf(System.currentTimeMillis() - 24 * 3600 * 1000);
+            globalParamsMap.put("start_time_stamp", startTimeStamp);
+        }
+
+        String startTimeStampS = globalParamsMap.get("start_time_stamp_s");
+        if (startTimeStampS == null) {
+            startTimeStampS = String.valueOf((System.currentTimeMillis() - 24 * 3600 * 1000)/1000);
+            globalParamsMap.put("start_time_stamp_s", startTimeStampS);
+        }
+
+        String startTime = parseTime(startTimeStamp);
+        globalParamsMap.put("start_time", startTime);
         return globalParamsMap;
+    }
+
+    private String parseTime(String timestamp) {
+
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            return sdf.format(new Date(Long.parseLong(timestamp)));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "";
     }
 
     /**
