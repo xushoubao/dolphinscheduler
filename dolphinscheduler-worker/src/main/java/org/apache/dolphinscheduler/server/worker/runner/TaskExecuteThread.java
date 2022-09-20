@@ -49,12 +49,8 @@ import org.apache.commons.lang3.tuple.Pair;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import java.util.concurrent.Delayed;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -285,9 +281,65 @@ public class TaskExecuteThread implements Runnable, Delayed {
         String globalParamsStr = taskExecutionContext.getGlobalParams();
         if (globalParamsStr != null) {
             List<Property> globalParamsList = JSONUtils.toList(globalParamsStr, Property.class);
+
+            String syncData = null;
+            for (Property property : globalParamsList) {
+                if ("syncDate".equals(property.getProp())) {
+                    syncData = property.getValue();
+                    break;
+                }
+            }
+            if (syncData != null) {
+                globalParamsMap.put("start_time_stamp", getStartTime(syncData));
+                globalParamsMap.put("end_time_stamp", getEndTime(syncData));
+                globalParamsMap.put("start_time_stamp_s", getStartTimeS(syncData));
+                globalParamsMap.put("end_time_stamp_s", getEndTimeS(syncData));
+            }
+
             globalParamsMap.putAll(globalParamsList.stream().collect(Collectors.toMap(Property::getProp, Property::getValue)));
         }
         return globalParamsMap;
+    }
+
+    private Long parseTime(String time) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        try {
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTime(sdf.parse(time));
+            calendar.set(Calendar.HOUR_OF_DAY, 0);
+            calendar.set(Calendar.MINUTE, 0);
+            calendar.set(Calendar.SECOND, 0);
+            return calendar.getTimeInMillis();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    private String getStartTime(String time) {
+        return parseTime(time) != null ? parseTime(time).toString() : "";
+    }
+
+    private String getStartTimeS(String time) {
+        return parseTime(time) != null ? Long.toString(parseTime(time) / 1000) : "";
+    }
+
+    private String getEndTime(String time) {
+        Long endTime = parseTime(time);
+        if (endTime != null) {
+            endTime += 86399 * 1000;
+            return endTime.toString();
+        }
+        return "";
+    }
+
+    private String getEndTimeS(String time) {
+        Long endTime = parseTime(time);
+        if (endTime != null) {
+            endTime += 86399 * 1000;
+            return Long.toString(endTime / 1000);
+        }
+        return "";
     }
 
     /**
