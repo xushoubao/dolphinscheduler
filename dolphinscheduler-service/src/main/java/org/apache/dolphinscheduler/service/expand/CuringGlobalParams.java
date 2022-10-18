@@ -20,6 +20,7 @@ package org.apache.dolphinscheduler.service.expand;
 import static org.apache.dolphinscheduler.plugin.task.api.TaskConstants.PARAMETER_TASK_EXECUTE_PATH;
 import static org.apache.dolphinscheduler.plugin.task.api.TaskConstants.PARAMETER_TASK_INSTANCE_ID;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.dolphinscheduler.common.Constants;
 import org.apache.dolphinscheduler.common.enums.CommandType;
 import org.apache.dolphinscheduler.common.utils.DateUtils;
@@ -28,18 +29,16 @@ import org.apache.dolphinscheduler.common.utils.ParameterUtils;
 import org.apache.dolphinscheduler.common.utils.placeholder.BusinessTimeUtils;
 import org.apache.dolphinscheduler.dao.entity.ProcessInstance;
 import org.apache.dolphinscheduler.dao.entity.TaskInstance;
+import org.apache.dolphinscheduler.plugin.task.api.enums.DataType;
+import org.apache.dolphinscheduler.plugin.task.api.enums.Direct;
 import org.apache.dolphinscheduler.plugin.task.api.model.Property;
 import org.apache.dolphinscheduler.plugin.task.api.parameters.AbstractParameters;
 import org.apache.dolphinscheduler.plugin.task.api.parser.ParamUtils;
 import org.apache.dolphinscheduler.plugin.task.api.utils.MapUtils;
 import org.apache.dolphinscheduler.spi.utils.StringUtils;
 
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +46,7 @@ import org.springframework.stereotype.Component;
 
 import lombok.NonNull;
 
+@Slf4j
 @Component
 public class CuringGlobalParams implements CuringParamsService {
 
@@ -118,7 +118,66 @@ public class CuringGlobalParams implements CuringParamsService {
                 property.setValue(val);
             }
         }
+
+        // add timestamp
+        String syncDate = resolveMap.get("syncDate");
+        if (StringUtils.isNotEmpty(syncDate)) {
+            log.info("===== syncDate is {}", syncDate);
+            addGlobalParam(globalParamList, new Property("start_time_stamp", Direct.IN, DataType.VARCHAR, getStartTime(syncDate)));
+            addGlobalParam(globalParamList, new Property("end_time_stamp", Direct.IN, DataType.VARCHAR, getEndTime(syncDate)));
+            addGlobalParam(globalParamList, new Property("start_time_stamp_s", Direct.IN, DataType.VARCHAR, getStartTimeS(syncDate)));
+            addGlobalParam(globalParamList, new Property("end_time_stamp_s", Direct.IN, DataType.VARCHAR, getEndTimeS(syncDate)));
+        }
         return JSONUtils.toJsonString(globalParamList);
+    }
+
+    private List<Property> addGlobalParam(List<Property> globalParamList, Property property) {
+        if (globalParamList.contains(property)) {
+            return globalParamList;
+        }
+        globalParamList.add(property);
+        return globalParamList;
+    }
+
+    private Long parseTime(String time) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        try {
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTime(sdf.parse(time));
+            calendar.set(Calendar.HOUR_OF_DAY, 0);
+            calendar.set(Calendar.MINUTE, 0);
+            calendar.set(Calendar.SECOND, 0);
+            return calendar.getTimeInMillis();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    private String getStartTime(String time) {
+        return parseTime(time) != null ? parseTime(time).toString() : "";
+    }
+
+    private String getStartTimeS(String time) {
+        return parseTime(time) != null ? Long.toString(parseTime(time) / 1000) : "";
+    }
+
+    private String getEndTime(String time) {
+        Long endTime = parseTime(time);
+        if (endTime != null) {
+            endTime += 86399 * 1000;
+            return endTime.toString();
+        }
+        return "";
+    }
+
+    private String getEndTimeS(String time) {
+        Long endTime = parseTime(time);
+        if (endTime != null) {
+            endTime += 86399 * 1000;
+            return Long.toString(endTime / 1000);
+        }
+        return "";
     }
 
     /**
